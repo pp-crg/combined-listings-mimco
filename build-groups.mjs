@@ -27,7 +27,8 @@
  * by a typo, a plural or a stray hyphen. Those pairs are written to a separate
  * file for upstream correction rather than merged automatically.
  *
- * Emits groups.csv with `approved` left BLANK. A human fills it in.
+ * Emits type-specific CSV files when --type is provided, with `approved` left
+ * BLANK in the groups file. A human fills it in.
  * Nothing here writes to Shopify.
  *
  * style_group_id is minted here, not read from Shopify. It is the lowest style
@@ -35,7 +36,8 @@
  *
  * Node 18+. No dependencies.
  *
- *   node --env-file=.env build-groups.mjs --type "Bags" --out groups.csv
+ *   node --env-file=.env build-groups.mjs --type "Bags Leather"
+ *   node --env-file=.env build-groups.mjs --title "38mm Swirl Watch Band" --out groups.csv
  *   node --env-file=.env build-groups.mjs --warn-gap 50 --near-out near-misses.csv
  */
 
@@ -251,9 +253,6 @@ function findNearMisses(items, threshold) {
 
 function parseArgs(argv) {
   const a = {
-    out: "groups.csv",
-    nearOut: "near-misses.csv",
-    unmatchedOut: "unmatched-handles.csv",
     warnGap: DEFAULT_WARN_GAP,
     splitGap: DEFAULT_SPLIT_GAP,
     maxGroup: DEFAULT_MAX_GROUP,
@@ -276,6 +275,7 @@ function parseArgs(argv) {
       case "--price-ratio": a.priceRatio = Number(n()); break;
       case "--near-threshold": a.nearThreshold = Number(n()); break;
       case "--type": a.type = n(); break;
+      case "--title": a.title = n(); break;
       case "--query": a.query = n(); break;
       case "--shop": a.shop = n(); break;
       case "--token": a.token = n(); break;
@@ -285,6 +285,13 @@ function parseArgs(argv) {
       case "--limit": a.limit = Number(n()); break;
     }
   }
+
+  const typeSlug = titleSlug(normTitle(a.type));
+  const suffix = typeSlug ? `-${typeSlug}` : "";
+  a.out ??= `groups${suffix}.csv`;
+  a.nearOut ??= `near-misses${suffix}.csv`;
+  a.unmatchedOut ??= `unmatched-handles${suffix}.csv`;
+
   return a;
 }
 
@@ -306,6 +313,7 @@ async function main() {
   const endpoint = `https://${creds.shop}/admin/api/${args.apiVersion}/graphql.json`;
   let query = args.query;
   if (args.type) query += ` AND product_type:'${args.type}'`;
+  if (args.title) query += ` AND title:'${args.title}'`;
 
   console.log(`Fetching catalogue with query: ${query}`);
   const nodes = [];

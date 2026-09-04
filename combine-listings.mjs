@@ -16,13 +16,14 @@
  *
  * Node 18+. No dependencies.
  *
- *   node --env-file=.env combine-listings.mjs --input groups.csv --dry-run
- *   node --env-file=.env combine-listings.mjs --input groups.csv --limit 2 --status ACTIVE
- *   node --env-file=.env combine-listings.mjs --input groups.csv --resume
+ *   node --env-file=.env combine-listings.mjs --input groups-bags-leather.csv --dry-run
+ *   node --env-file=.env combine-listings.mjs --input groups-bags-leather.csv --limit 2 --status ACTIVE
+ *   node --env-file=.env combine-listings.mjs --input groups-bags-leather.csv --resume
  *   node --env-file=.env combine-listings.mjs --rollback --log run_log.csv
  */
 
 import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
 import { createTokenProvider, resolveCredentials, credentialSummary } from "./shopify-auth.mjs";
 
@@ -655,8 +656,16 @@ async function rollback(client, logFile) {
 // CLI
 // ---------------------------------------------------------------------------
 
+function defaultLogFile(input) {
+  if (!input) return "run_log.csv";
+  const parsed = path.parse(input);
+  const match = parsed.name.match(/^groups-(.+)$/i);
+  const filename = match ? `run_log-${match[1]}.csv` : "run_log.csv";
+  return path.join(parsed.dir, filename);
+}
+
 function parseArgs(argv) {
-  const args = { status: "DRAFT", log: "run_log.csv", apiVersion: DEFAULT_API_VERSION, optionName: DEFAULT_OPTION_NAME };
+  const args = { status: "DRAFT", apiVersion: DEFAULT_API_VERSION, optionName: DEFAULT_OPTION_NAME };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
@@ -676,6 +685,7 @@ function parseArgs(argv) {
     else if (a === "--rollback") args.rollbackMode = true;
     else if (a === "--verbose") args.verbose = true;
   }
+  args.log ??= defaultLogFile(args.input);
   return args;
 }
 
